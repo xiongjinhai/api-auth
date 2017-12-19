@@ -1,0 +1,32 @@
+{
+    "name": "dsweixin/api-auth",
+    "description": "laravel API 鉴权",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "xiongjinhai",
+            "email": "xiongjinhaimao@126.com"
+        }
+    ],
+    "autoload": {
+        "psr-4": {
+            "ApiAuth\\": "src"
+        },
+        "files": [
+            "src/fn.php"
+        ]
+    },
+    "require": {
+        "php": ">=5.6"
+    },
+    "require-dev": {
+        "laravel/laravel": "^5.5"
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "ApiAuth\\ApiServiceProvider"
+            ]
+        }
+    }
+}
