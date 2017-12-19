@@ -77,13 +77,15 @@ composer require dsweixin/api-auth
       * @param int $code
       * @return \Illuminate\Http\JsonResponse
       */
-     function error_handler($request, $code)
-     {
-         return response()->json([
-             'msg' => 'Forbidden',
-             'code' => $code
-         ], 403);
-     }  
+    public static function error_handler($msg , $status = 200)
+    {
+        $data = array(
+            "msg"   => isset($msg) ? self::_lang($msg) : "参数错误",
+            "error" => $msg,
+            "data"  => new \stdClass()
+        );
+        return response()->json($data, $status, ["Content-Type" => "application/json;charset=utf-8"]);
+    }  
      ```
      `$code` 可能是以下几个值中的一个:
      * `LaravelApiAuth::LACK_HEADER` -> 缺少请求头。
@@ -117,7 +119,7 @@ const access_key = '{access_key}';  // 服务端生成的 access_key
 const secret_key = '{secret_key}';  // 服务端生成的 secret_key
 
 const timestamp = Date.parse(new Date()) / 1000;    // 取时间戳
-const echostr = 'asldjaksdjlkjgqpojg64131321';      // 随机字符串自行生成
+const echostr = 'abcdef';      // 随机字符串自行生成
 
 function encrypting(secret_key, echostr, timestamp){
     return md5(secret_key + echostr + timestamp);    // md5 库自行引入
@@ -125,10 +127,10 @@ function encrypting(secret_key, echostr, timestamp){
 
 const requestConfig = {
     headers: {
-        "api-signature": encrypting(secret_key, echostr, timestamp),
-        "api-echostr": echostr,
-        "api-timestamp": timestamp,
-        "api-access-key": access_key
+        "signature": encrypting(secret_key, echostr, timestamp),
+        "echostr": echostr,
+        "timestamp": timestamp,
+        "access-key": access_key
     }
 };
 

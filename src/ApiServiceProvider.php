@@ -19,7 +19,6 @@ class ApiServiceProvider extends  ServiceProvider
         $this->setupConfig();
 
     }
-
     /**
      * api 鉴权
      */

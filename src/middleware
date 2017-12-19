@@ -8,51 +8,34 @@ use RuntimeException;
 
 class ApiAuth
 {
-
-    const LACK_HEADER = 1001;               // 缺少头
-    const ACCESS_KEY_ERROR = 1002;          // access_key 错误
+    const LACK_HEADER= 1001;               // 缺少头
+    const ACCESS_KEY_ERROR = 1002;          // access_key错误
     const SIGNATURE_ERROR = 1003;           // 签名错误
     const SIGNATURE_LAPSE = 1004;           // 签名失效
     const SIGNATURE_REPETITION = 1005;      // 签名重复
 
-    /**
-     * Handle an incoming request.
-     *
-     * @param \Illuminate\Http\Request $request
-     * @param \Closure $next
-     *
-     * @return mixed
-     */
     public function handle($request, Closure $next)
     {
-        if (config('api_auth.status') === 'on') {
-            $access_key = $request->header('api-access-key');
-            $timestamp = $request->header('api-timestamp');
-            $echostr = $request->header('api-echostr');
-            $signature = $request->header('api-signature');
+        if (config('api_auth.status') === 'true') {
+            $access_key = $request->header('access-key');
+            $timestamp = $request->header('timestamp');
+            $echostr = $request->header('echostr');
+            $signature = $request->header('signature');
 
             /**
              * 获取 error_handler 函数
              */
             $error_handler = config('api_auth.error_handler');
+
             if (!is_callable($error_handler)) {
                 throw new RuntimeException('config("api_auth.error_handler") is not function !');
             }
-
             if (empty($timestamp) || empty($access_key) || empty($echostr) || empty($signature)) {
-                return call_user_func_array($error_handler, [
-                    $request,
-                    LaravelApiAuth::LACK_HEADER
-                ]);      // 缺少请求头
+                return call_user_func_array($error_handler, array(ApiAuth::LACK_HEADER));      // 缺少请求头
             }
-
             $roles = config('api_auth.roles');
             if (!isset($roles[$access_key])) {
-
-                return call_user_func_array($error_handler, [
-                    $request,
-                    LaravelApiAuth::ACCESS_KEY_ERROR
-                ]);         // access_key 不存在
+                return call_user_func_array($error_handler, array(ApiAuth::ACCESS_KEY_ERROR));         // access_key 不存在
             }
 
             $encrypting = config('api_auth.encrypting');
@@ -68,25 +51,17 @@ class ApiAuth
             $server_signature = call_user_func_array($encrypting, [$roles[$access_key]['secret_key'], $echostr, $timestamp]);
 
             if (!call_user_func_array($rule, [$roles[$access_key]['secret_key'], $signature, $server_signature])) {
-                return call_user_func_array($error_handler, [
-                    $request,
-                    LaravelApiAuth::SIGNATURE_ERROR
-                ]);  // 签名不一致
+                return call_user_func_array($error_handler, array(ApiAuth::SIGNATURE_ERROR));  // 签名不一致
             }
 
             $timeout = config('api_auth.timeout', 60);
+
             if (time() - $timestamp > $timeout) {
-                return call_user_func_array($error_handler, [
-                    $request,
-                    LaravelApiAuth::SIGNATURE_LAPSE
-                ]);      // 签名失效
+                return call_user_func_array($error_handler, array(ApiAuth::SIGNATURE_LAPSE));      // 签名失效
             }
 
             if (!is_null(cache()->pull('api_auth:' . $signature))) {
-                return call_user_func_array($error_handler, [
-                    $request,
-                    LaravelApiAuth::SIGNATURE_REPETITION
-                ]);      // 签名重复(已存在该签名记录)
+                return call_user_func_array($error_handler, array(ApiAuth::SIGNATURE_REPETITION));      // 签名重复(已存在该签名记录)
             } else {
                 cache()->put('api_auth:' . $signature, $request->getClientIp(), $timeout / 60);
             }
@@ -101,20 +76,16 @@ class ApiAuth
         }
         return $next($request);
     }
-
     /**
-     * @param Request $request
-     * @param int $code
-     * @return \Illuminate\Http\JsonResponse
+     * @param $secret_key
+     * @param $signature
+     * @param $server_signature
+     * @return bool
      */
-    public static function error_handler($request, $code = 403)
+    public static function rule($secret_key, $signature, $server_signature)
     {
-        return response()->json([
-            'msg' => 'Forbidden',
-            'code' => $code
-        ], 403);
+        return $signature === $server_signature;
     }
-
     /**
      * @param $secret_key
      * @param $echostr
@@ -125,15 +96,34 @@ class ApiAuth
     {
         return md5($secret_key . $echostr . $timestamp);
     }
+    /**
+     * @param array $msg
+     * @param int $status
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public static function error_handler($msg , $status = 200)
+    {
+        $data = array(
+            "msg"   => isset($msg) ? self::_lang($msg) : "参数错误",
+            "error" => $msg,
+            "data"  => new \stdClass()
+        );
+        return response()->json($data, $status, ["Content-Type" => "application/json;charset=utf-8"]);
+    }
 
     /**
-     * @param $secret_key
-     * @param $signature
-     * @param $server_signature
-     * @return bool
+     * 返回对应错误
+     * @param $type
+     * @return mixed|string
      */
-    public static function rule($secret_key, $signature, $server_signature)
-    {
-        return $signature === $server_signature;
+    private static function _lang($type){
+        $lang  = array(
+            "1001" => "缺少头部",
+            "1002" => "access_key错误",
+            "1003" => "签名错误",
+            "1004" => "签名失效",
+            "1005" => "签名重复",
+        );
+        return isset($lang[$type]) ? $lang[$type] : "未知错误";
     }
 }
